@@ -80,14 +80,27 @@ def book_seat(bus_id, name, phone, seat_number):
         if taken:
             return f"Seat {seat_number} is already taken."
         cur = conn.execute("INSERT INTO passengers (name, phone) VALUES (?, ?)", (name, phone))
-        conn.execute(
+        booking = conn.execute(
             "INSERT INTO bookings (bus_id, passenger_id, seat_number) VALUES (?, ?, ?)",
             (bus_id, cur.lastrowid, seat_number))
-        return f"Booked seat {seat_number} for {name}."
+        return f"Booked seat {seat_number} for {name}. Booking ID: {booking.lastrowid}"
+
+def cancel_booking(booking_id):
+    with get_conn() as conn:
+        booking = conn.execute(
+            "SELECT status, seat_number FROM bookings WHERE booking_id = ?", (booking_id,)).fetchone()
+        if booking is None:
+            return "Booking not found."
+        if booking[0] == "CANCELLED":
+            return "This booking is already cancelled."
+        conn.execute("UPDATE bookings SET status = 'CANCELLED' WHERE booking_id = ?", (booking_id,))
+        return f"Booking {booking_id} cancelled. Seat {booking[1]} is free again."
 
 if __name__ == "__main__":
     create_tables()
     add_sample_data()
-    print(search_buses("Mysuru", "Bengaluru", "2026-11-25"))
-    print(book_seat(1, "Lalkrishna", "9999999999", 5))
-    print(book_seat(1, "Test User", "8888888888", 5))  # should be rejected
+    print(book_seat(1, "Lalkrishna", "9999999999", 5))   # books seat 5
+    print(book_seat(1, "Test User", "8888888888", 5))    # rejected, taken
+    print(cancel_booking(1))                             # cancels it
+    print(cancel_booking(1))                             # already cancelled
+    print(book_seat(1, "Test User", "8888888888", 5))    # works, seat is free
